@@ -2,59 +2,120 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CBT Exam</title>
+<title>CBT Examination</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <style>
-body{font-family:Arial;background:#eee}
-.wrap{max-width:900px;margin:auto;background:#fff;padding:20px}
+body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0}
+.container{max-width:900px;margin:40px auto;background:#fff;padding:24px;border-radius:8px}
+button{padding:10px 18px;border:none;border-radius:6px;background:#0b3c5d;color:#fff;cursor:pointer}
+button:disabled{background:#aaa}
+.option{margin:8px 0}
+.hidden{display:none}
 </style>
 </head>
 <body>
 
-<div class="wrap">
+<div class="container">
 <h2>CBT Examination</h2>
-Name: <input id="name"><br><br>
-<button onclick="start()">Start</button>
 
-<div id="exam" style="display:none">
-<p id="no"></p>
+<p>Candidate Name:</p>
+<input type="text" id="name" style="width:100%;padding:8px" placeholder="Enter your name">
+
+<br><br>
+<button id="startBtn" disabled>Loading test…</button>
+
+<hr>
+
+<div id="exam" class="hidden">
+<div id="status"></div>
 <p id="stem"></p>
-<div id="opt"></div>
-<button onclick="prev()">Prev</button>
-<button onclick="next()">Next</button>
-<button onclick="submit()">Submit</button>
+<div id="options"></div>
+
+<br>
+<button onclick="prevQ()">Previous</button>
+<button onclick="nextQ()">Next</button>
+<button onclick="submitExam()">Submit</button>
 </div>
 
 <div id="result"></div>
 </div>
 
 <script>
-let bank=[], i=0, ans={};
+const API_URL = "https://script.google.com/macros/s/AKfycbyWsz_xaxTkKEJFt8DNB05iv1vv5XxDkGsmPfUK2eXrlvgNv7fMRfhFNeZVyIROaekA/exec";
 
-fetch("URL_API_ANDA_DI_SINI")
-.then(r=>r.json())
-.then(d=>bank=d);
+let bank = [];
+let current = 0;
+let answers = {};
 
-function start(){
-  document.getElementById("exam").style.display="block";
-  show();
+fetch(API_URL)
+  .then(res => res.json())
+  .then(data => {
+    bank = data;
+    if (!bank || !bank.length) {
+      alert("No items found. Check your Google Sheet.");
+      return;
+    }
+    document.getElementById("startBtn").innerText = "Start Exam (" + bank.length + " items)";
+    document.getElementById("startBtn").disabled = false;
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Failed to load item bank.");
+  });
+
+function startExam(){
+  if (!document.getElementById("name").value.trim()) {
+    alert("Candidate name is required.");
+    return;
+  }
+  document.getElementById("startBtn").classList.add("hidden");
+  document.getElementById("exam").classList.remove("hidden");
+  renderQ();
 }
-function show(){
-  let q=bank[i];
-  document.getElementById("no").innerText=`Q ${i+1}/${bank.length}`;
-  document.getElementById("stem").innerText=q.Stem;
-  document.getElementById("opt").innerHTML=["A","B","C","D"].map(o=>
-    `<label><input type="radio" name="o"
-     ${ans[i]==o?"checked":""}
-     onchange="ans[${i}]='${o}'"> ${o}. ${q["Option"+o]}</label><br>`
-  ).join("");
+
+function renderQ(){
+  const q = bank[current];
+  document.getElementById("status").innerText = `Question ${current+1} / ${bank.length}`;
+  document.getElementById("stem").innerText = q.Stem;
+
+  let html = "";
+  ["A","B","C","D"].forEach(o => {
+    html += `
+     <div class="option">
+       <label>
+         <input type="radio" name="opt" value="${o}"
+           ${answers[current] === o ? "checked" : ""}
+           onchange="answers[current]='${o}'">
+         ${o}. ${q["Option"+o]}
+       </label>
+     </div>`;
+  });
+  document.getElementById("options").innerHTML = html;
 }
-function next(){if(i<bank.length-1){i++;show();}}
-function prev(){if(i>0){i--;show();}}
-function submit(){
-  let c=0;
-  bank.forEach((q,idx)=>{if(ans[idx]==q.Correct)c++;});
-  document.getElementById("result").innerHTML=
-    `Name: ${name.value}<br>Total: ${bank.length}<br>Correct: ${c}<br>Wrong: ${bank.length-c}`;
+
+function nextQ() {
+  if (current < bank.length - 1) current++;
+  renderQ();
+}
+
+function prevQ() {
+  if (current > 0) current--;
+  renderQ();
+}
+
+function submitExam(){
+  let correctCount = 0;
+  bank.forEach((q,i) => {
+    if (answers[i] === q.Correct) correctCount++;
+  });
+  document.getElementById("exam").classList.add("hidden");
+  document.getElementById("result").innerHTML = `
+    <h3>Result</h3>
+    Name: ${document.getElementById("name").value}<br>
+    Total: ${bank.length}<br>
+    Correct: ${correctCount}<br>
+    Wrong: ${bank.length - correctCount}
+  `;
 }
 </script>
 
