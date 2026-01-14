@@ -1,87 +1,124 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SCFHS Adult Nursing CBT</title>
+<title>Adult Nursing CBT Examination</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { font-family: Arial; background:#f5f7fa; margin:0 }
-header { background:#0b3c5d; color:white; padding:15px }
-.container { max-width:900px; margin:auto; padding:20px }
-.option { border:1px solid #ccc; padding:10px; margin:8px 0; cursor:pointer }
-.option:hover { background:#eef }
-button { padding:10px 15px; margin:10px }
+body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0 }
+.container { max-width:900px; margin:auto; padding:20px; background:#fff }
+h1 { font-size:22px }
+.option { margin:8px 0 }
+button { padding:10px 18px; margin:10px 5px }
+#timer, #violations { font-weight:bold }
+.hidden { display:none }
 </style>
 </head>
 
 <body>
-
-<header>
-<h2>SCFHS Adult Nursing Examination</h2>
-Candidate Name: <input id="name" placeholder="Enter name">
-<span style="float:right">Time: <span id="time">120:00</span></span>
-</header>
-
 <div class="container">
-<div id="qbox"></div>
 
+<h1>Adult Nursing Examination</h1>
+
+<div id="startScreen">
+<label>Candidate Name:</label><br>
+<input type="text" id="candidateName" placeholder="Enter your name"><br><br>
+<button onclick="startExam()">Start Exam</button>
+</div>
+
+<div id="examScreen" class="hidden">
 <div>
-<button onclick="prev()">Previous</button>
-<button onclick="next()">Next</button>
+Time Remaining: <span id="timer"></span> |
+Violations: <span id="violations">0</span>
+</div>
+<hr>
+
+<div id="questionBox"></div>
+
+<button onclick="prevQ()">Previous</button>
+<button onclick="nextQ()">Next</button>
 <button onclick="submitExam()">Submit</button>
 </div>
+
+<div id="resultScreen" class="hidden"></div>
+
 </div>
 
 <script>
-const API_URL = "PASTE_YOUR_SCRIPT_URL_HERE";
-let bank=[], index=0, answers={}, timer=7200;
+let questions = [];
+let answers = {};
+let current = 0;
+let violations = 0;
+let timeLeft = 120 * 60; // 120 minutes
 
-fetch(API_URL)
-.then(r=>r.json())
-.then(d=>{
-  bank = shuffle(d).slice(0,120);
-  render();
+// === FETCH ITEM BANK ===
+fetch("ITEM_BANK_URL_HERE") // ← Apps Script / JSON URL
+.then(r => r.json())
+.then(data => {
+  questions = data.slice(0,120);
 });
 
-function render(){
-  const q = bank[index];
-  document.getElementById("qbox").innerHTML = `
-  <h3>Q ${index+1}/120 – ${q.Domain} (b=${q.Difficulty_b})</h3>
-  <p>${q.Stem}</p>
-  ${["A","B","C","D"].map(o=>`
-    <div class="option" onclick="select('${o}')">
-      ${o}. ${q["Option"+o]}
-    </div>`).join("")}
+// === TIMER ===
+setInterval(()=>{
+  if(document.getElementById("examScreen").classList.contains("hidden")) return;
+  timeLeft--;
+  let m = Math.floor(timeLeft/60);
+  let s = timeLeft%60;
+  document.getElementById("timer").innerText =
+    m+":"+(s<10?"0":"")+s;
+  if(timeLeft<=0) submitExam();
+},1000);
+
+// === PROCTORING ===
+window.onblur = () => {
+  violations++;
+  document.getElementById("violations").innerText = violations;
+};
+
+// === FUNCTIONS ===
+function startExam(){
+  let name = document.getElementById("candidateName").value.trim();
+  if(!name) { alert("Enter name"); return; }
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("examScreen").classList.remove("hidden");
+  renderQ();
+}
+
+function renderQ(){
+  let q = questions[current];
+  if(!q) return;
+  document.getElementById("questionBox").innerHTML = `
+    <h3>Q ${current+1}/120</h3>
+    <p>${q.Stem}</p>
+    ${["A","B","C","D"].map(o=>`
+      <div class="option">
+        <input type="radio" name="opt" value="${o}"
+        ${answers[current]==o?"checked":""}
+        onchange="answers[${current}]='${o}'">
+        ${o}. ${q["Option"+o]}
+      </div>`).join("")}
   `;
 }
 
-function select(o){ answers[index]=o }
-function next(){ if(index<119){index++;render()} }
-function prev(){ if(index>0){index--;render()} }
+function nextQ(){ if(current<119){ current++; renderQ(); } }
+function prevQ(){ if(current>0){ current--; renderQ(); } }
 
 function submitExam(){
-  let correct=0;
-  bank.forEach((q,i)=>{
+  let correct = 0;
+  questions.forEach((q,i)=>{
     if(answers[i]==q.Correct) correct++;
   });
-  const name=document.getElementById("name").value;
-  alert(`
-NAME: ${name}
-TOTAL: 120
-CORRECT: ${correct}
-WRONG: ${120-correct}
-`);
+  let wrong = 120 - correct;
+  document.getElementById("examScreen").classList.add("hidden");
+  document.getElementById("resultScreen").classList.remove("hidden");
+  document.getElementById("resultScreen").innerHTML = `
+    <h2>Result</h2>
+    Name: ${document.getElementById("candidateName").value}<br>
+    Total Items: 120<br>
+    Correct: ${correct}<br>
+    Wrong: ${wrong}
+  `;
 }
-
-function shuffle(a){
-  return a.sort(()=>Math.random()-0.5);
-}
-
-setInterval(()=>{
-  timer--;
-  document.getElementById("time").innerText=
-    Math.floor(timer/60)+":"+String(timer%60).padStart(2,'0');
-  if(timer<=0) submitExam();
-},1000);
 </script>
 
 </body>
