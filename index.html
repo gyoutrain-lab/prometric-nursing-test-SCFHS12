@@ -2,26 +2,23 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CBT Examination</title>
+<title>CBT Exam</title>
 <style>
-body{font-family:Arial;background:#f2f2f2}
-.box{max-width:900px;margin:auto;background:#fff;padding:20px}
+body{font-family:Arial;background:#eee}
+.wrap{max-width:900px;margin:auto;background:#fff;padding:20px}
 </style>
 </head>
 <body>
 
-<div class="box">
+<div class="wrap">
 <h2>CBT Examination</h2>
-
-Name:
-<input id="name"><br><br>
-
+Name: <input id="name"><br><br>
 <button onclick="start()">Start</button>
 
 <div id="exam" style="display:none">
-<p id="qno"></p>
+<p id="no"></p>
 <p id="stem"></p>
-<div id="opts"></div>
+<div id="opt"></div>
 <button onclick="prev()">Prev</button>
 <button onclick="next()">Next</button>
 <button onclick="submit()">Submit</button>
@@ -31,42 +28,33 @@ Name:
 </div>
 
 <script>
-let data=[], idx=0, ans={};
+let bank=[], i=0, ans={};
 
-fetch("PASTE_WEBAPP_URL_HERE")
+fetch("URL_API_ANDA_DI_SINI")
 .then(r=>r.json())
-.then(d=>data=d);
+.then(d=>bank=d);
 
 function start(){
   document.getElementById("exam").style.display="block";
-  render();
+  show();
 }
-
-function render(){
-  let q=data[idx];
-  document.getElementById("qno").innerText=`Question ${idx+1} / ${data.length}`;
+function show(){
+  let q=bank[i];
+  document.getElementById("no").innerText=`Q ${i+1}/${bank.length}`;
   document.getElementById("stem").innerText=q.Stem;
-  document.getElementById("opts").innerHTML=["A","B","C","D"].map(o=>
-    `<label>
-     <input type="radio" name="o" value="${o}"
-     ${ans[idx]==o?"checked":""}
-     onchange="ans[${idx}]='${o}'">
-     ${o}. ${q["Option"+o]}
-     </label><br>`
+  document.getElementById("opt").innerHTML=["A","B","C","D"].map(o=>
+    `<label><input type="radio" name="o"
+     ${ans[i]==o?"checked":""}
+     onchange="ans[${i}]='${o}'"> ${o}. ${q["Option"+o]}</label><br>`
   ).join("");
 }
-
-function next(){ if(idx<data.length-1){idx++;render();}}
-function prev(){ if(idx>0){idx--;render();}}
-
+function next(){if(i<bank.length-1){i++;show();}}
+function prev(){if(i>0){i--;show();}}
 function submit(){
-  let correct=0;
-  data.forEach((q,i)=>{ if(ans[i]==q.Correct) correct++; });
+  let c=0;
+  bank.forEach((q,idx)=>{if(ans[idx]==q.Correct)c++;});
   document.getElementById("result").innerHTML=
-    `Name: ${document.getElementById("name").value}<br>
-     Total: ${data.length}<br>
-     Correct: ${correct}<br>
-     Wrong: ${data.length-correct}`;
+    `Name: ${name.value}<br>Total: ${bank.length}<br>Correct: ${c}<br>Wrong: ${bank.length-c}`;
 }
 </script>
 
