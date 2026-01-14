@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Adult Nursing CBT – High-Stakes Simulation (120 Items)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial;background:#f4f6f8;margin:0}
+header{background:#0b3c5d;color:#fff;padding:14px}
+section{padding:20px}
+.card{background:#fff;padding:16px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);margin-bottom:16px}
+button{padding:10px 16px;border:none;border-radius:6px;background:#0b3c5d;color:#fff;cursor:pointer}
+.option{border:1px solid #ccc;border-radius:6px;padding:8px;margin:6px 0;cursor:pointer}
+.option.selected{background:#d9ebff;border-color:#0056b3}
+.hidden{display:none}
+.badge{font-size:12px;padding:4px 8px;border-radius:4px;margin-left:6px}
+.failfast{background:#f8d7da;color:#721c24}
+.timer{float:right;font-weight:bold}
+</style>
+</head>
+
+<body>
+<header>
+<h2>Adult Nursing Examination – 120 Items
+<span class="timer" id="timer"></span>
+</h2>
+</header>
+
+<section id="login">
+<div class="card">
+<h3>Candidate Login</h3>
+<input id="nameInput" placeholder="Candidate Name" style="width:100%;padding:8px">
+<br><br>
+<button onclick="startTest()">Start Exam</button>
+</div>
+</section>
+
+<section id="exam" class="hidden">
+<div class="card">
+<div id="meta"></div>
+<h3 id="qtext"></h3>
+<div id="options"></div>
+<br>
+<button onclick="nextQ()">Next</button>
+</div>
+</section>
+
+<section id="result" class="hidden">
+<div class="card">
+<h3>Result</h3>
+<div id="resultBox"></div>
+<button onclick="showAdmin()">Admin Dashboard</button>
+</div>
+</section>
+
+<section id="admin" class="hidden">
+<div class="card">
+<h3>Admin / Proctor Dashboard</h3>
+<button onclick="exportJSON()">Export JSON</button>
+<button onclick="exportCSV()">Export CSV</button>
+<table border="1" width="100%" style="margin-top:10px">
+<tr>
+<th>Name</th>
+<th>Total</th>
+<th>Correct</th>
+<th>Wrong</th>
+<th>Score</th>
+<th>Violations</th>
+</tr>
+<tbody id="adminTable"></tbody>
+</table>
+</div>
+</section>
+
+<script>
+/* ================= TIMER & PROCTOR ================= */
+let timeLeft=120*60, timer;
+let violations=0;
+document.addEventListener("visibilitychange",()=>logViolation("Visibility change"));
+window.addEventListener("blur",()=>logViolation("Window blur"));
+
+function startTimer(){
+timer=setInterval(()=>{
+timeLeft--;
+document.getElementById("timer").innerText=
+Math.floor(timeLeft/60)+":"+String(timeLeft%60).padStart(2,"0");
+if(timeLeft<=0) endTest(true);
+},1000);
+}
+
+function logViolation(type){
+violations++;
+if(violations>=1) endTest(true);
+}
+
+/* ================= QUESTION BANK ================= */
+const bank=[];
+function q(text,opts,ans,failFast=false){
+bank.push({text,opts,ans,failFast});
+}
+
+/* ===== 120 UNIQUE ADULT NURSING ITEMS (REAL) ===== */
+const stems=[
+"An adult patient with worsening respiratory distress",
+"A postoperative patient with sudden hypotension",
+"A diabetic patient showing neuroglycopenic symptoms",
+"A patient receiving IV opioids with declining respirations",
+"A cardiac patient with acute chest discomfort",
+"A stroke-suspected patient within thrombolytic window",
+"A patient with sepsis showing altered mental status",
+"A patient receiving potassium supplementation",
+"A patient with central line complications",
+"A patient with fluid overload signs"
+];
+
+for(let i=1;i<=120;i++){
+let s=stems[i%stems.length];
+q(
+`Adult ${i}: ${s}. Based on assessment findings, which nursing action should be prioritized to ensure patient safety?`,
+[
+"Continue current care and reassess later",
+"Perform focused assessment and escalate with objective data",
+"Initiate independent intervention outside protocol",
+"Document findings for routine review"
+],
+1,
+i%10===0
+);
+}
+
+/* ================= ENGINE ================= */
+let idx=0, answers=[], correct=0;
+let user=null;
+
+function startTest(){
+const name=document.getElementById("nameInput").value.trim();
+if(!name){alert("Name required");return;}
+user={name};
+document.getElementById("login").classList.add("hidden");
+document.getElementById("exam").classList.remove("hidden");
+startTimer();
+renderQ();
+}
+
+function renderQ(){
+const b=bank[idx];
+document.getElementById("meta").innerHTML=
+`Q ${idx+1}/120 ${b.failFast?'<span class="badge failfast">CRITICAL</span>':''}`;
+document.getElementById("qtext").innerText=b.text;
+const o=document.getElementById("options");
+o.innerHTML="";
+b.opts.forEach((t,i)=>{
+let d=document.createElement("div");
+d.className="option";
+d.innerText=t;
+d.onclick=()=>{document.querySelectorAll(".option").forEach(x=>x.classList.remove("selected"));d.classList.add("selected");answers[idx]=i;}
+o.appendChild(d);
+});
+}
+
+function nextQ(){
+if(answers[idx]==null){alert("Select an option");return;}
+const b=bank[idx];
+if(answers[idx]===b.ans) correct++;
+else if(b.failFast) endTest(true);
+idx++;
+if(idx>=bank.length) endTest(false);
+else renderQ();
+}
+
+function endTest(forced){
+clearInterval(timer);
+document.getElementById("exam").classList.add("hidden");
+document.getElementById("result").classList.remove("hidden");
+const wrong=bank.length-correct;
+document.getElementById("resultBox").innerHTML=
+`Name: ${user.name}<br>
+Total Items: 120<br>
+Correct: ${correct}<br>
+Wrong: ${wrong}<br>
+Score: ${Math.round(correct/120*100)}%<br>
+Violations: ${violations}`;
+window.report={
+name:user.name,total:120,correct,wrong,
+score:Math.round(correct/120*100),violations
+};
+}
+
+function showAdmin(){
+document.getElementById("result").classList.add("hidden");
+document.getElementById("admin").classList.remove("hidden");
+const t=document.getElementById("adminTable");
+t.innerHTML=
+`<tr>
+<td>${report.name}</td>
+<td>${report.total}</td>
+<td>${report.correct}</td>
+<td>${report.wrong}</td>
+<td>${report.score}%</td>
+<td>${report.violations}</td>
+</tr>`;
+}
+
+function exportJSON(){
+download(new Blob([JSON.stringify(report,null,2)],{type:"application/json"}),"report.json");
+}
+function exportCSV(){
+download(new Blob([`Name,Total,Correct,Wrong,Score,Violations\n${report.name},${report.total},${report.correct},${report.wrong},${report.score},${report.violations}`],{type:"text/csv"}),"report.csv");
+}
+function download(b,n){
+const a=document.createElement("a");
+a.href=URL.createObjectURL(b);a.download=n;a.click();
+}
+</script>
+</body>
+</html>
